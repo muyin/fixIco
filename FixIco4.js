@@ -1,4 +1,7 @@
 ;(function(window, document, $, undefined){
+    /**
+     * v0.1 @20200324
+     */
     // 自定义事件(发布订阅模式)
     function EventTarget(){
         this.handlers = {};
