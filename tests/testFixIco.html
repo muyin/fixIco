@@ -34,8 +34,6 @@
         </ul>
     </div>
     <script src="../jquery-1.8.3.min.js"></script>
-    <!-- <script src="./FixIco1.js"></script>
-    <script src="./FixIco2.js"></script> -->
     <script src="../FixIco4.js"></script>
     <script>
         window.inputVal1 = document.getElementById('inputVal1');
@@ -47,21 +45,11 @@
         window.addTinyBtn = document.getElementById('addTiny');
         window.myWrapper = document.getElementById('myWrapper');
 
-        // window.tiny = new Tiny({
-        //     out: '#myWrapper',
-        //     src: './viewer.png'
-        // });
-
-        // window.fixIco = new FixIco({
-        //     dom: 'myWrapper',
-        //     src: './a7.jpg',
-        //     display: 'auto'
-        // });
         var pst = {width:800, height:600}; 
         window.fixIco = new FixIco({
             dom: 'myWrapper',
             pattern: 'img',
-            src: './a7.jpg',
+            src: '../a7.jpg',
             width: pst.width,
             height: pst.height,
             cells: {
@@ -71,32 +59,66 @@
                     html: function(){
                         var str =   '<div>' +
                                 '<ul>'+
-                                    '<li><input type="button" value="弹出aa" id="jkaa"></li>'+
-                                    '<li><input type="button" value="弹出bb" id="jkbb"></li>'+
-                                    '<li><input type="button" value="顺时针旋转" id="jkcc"></li>'+
-                                    '<li><input type="button" value="重置" id="jkdd"></li>'+
+                                    '<li><input type="button" value="添加tiny" id="addTiny"></li>'+
+                                    '<li><input type="button" value="更换背景图片" id="replaceBigBg"></li>'+
+                                    '<li><input type="button" value="big顺时针旋转" id="bigRightRotate"></li>'+
+                                    '<li><input type="button" value="big逆时针旋转" id="bigLeftRotate"></li>'+
+                                    '<li><input type="button" value="tiny顺时针旋转" id="tinyRightRotate"></li>'+
+                                    '<li><input type="button" value="tiny逆时针旋转" id="tinyLeftRotate"></li>'+
+                                    '<li><input type="button" value="重置" id="reset"></li>'+
                                 '</ul>'+
                             '</div>';
                         return str;
                     },
                     init: function(me){
                         console.log('cells的init', me);
-                        var tinyId;
-                        var jkaaBtn = document.getElementById('jkaa');
-                        var jkbbBtn = document.getElementById('jkbb');
-                        var jkccBtn = document.getElementById('jkcc');
-                        var jkddBtn = document.getElementById('jkdd');
-                        jkaaBtn.addEventListener('click', function(){
+                        var tinyId, 
+                            bigImgSrc = ['../a7.jpg', '../a74.jpg'];
+                        var addTinyBtn = document.getElementById('addTiny');
+                        var replaceBigBgBtn = document.getElementById('replaceBigBg');
+                        var bigRightRotateBtn = document.getElementById('bigRightRotate');
+                        var bigLeftRotateBtn = document.getElementById('bigLeftRotate');
+                        var tinyRightRotateBtn = document.getElementById('tinyRightRotate');
+                        var tinyLeftRotateBtn = document.getElementById('tinyLeftRotate');
+                        var resetBtn = document.getElementById('reset');
+                        
+                        // 添加tiny
+                        addTinyBtn.addEventListener('click', function(){
                             tinyId = fixIco.addSimpleTiny();
-                            fixIco.replaceTinyImg(tinyId, './t1.jpg');
+                            fixIco.replaceTinyImg(tinyId, '../t1.jpg');
                         });
-                        jkbbBtn.addEventListener('click', function(){
-                            fixIco.replaceBigImg('./a7.jpg');
+                        
+                        // 更换big背景图片
+                        replaceBigBgBtn.addEventListener('click', function(){
+                            var oldsrc = fixIco.conf.bigsrc;
+                            var newsrc = oldsrc === bigImgSrc[0] ? bigImgSrc[1] : bigImgSrc[0] 
+                            console.warn('big背景图片src:', oldsrc, newsrc, bigImgSrc);
+                            fixIco.replaceBigImg(newsrc);
+
                         });
-                        jkccBtn.addEventListener('click', function(){
+
+                        // big顺时针旋转
+                        bigRightRotateBtn.addEventListener('click', function(){
                             fixIco.rotateAll(true);
                         });
-                        jkddBtn.addEventListener('click', function(){
+
+                        // big逆时针旋转
+                        bigLeftRotateBtn.addEventListener('click', function(){
+                            fixIco.rotateAll(false);
+                        });
+
+                        // tiny顺时针旋转
+                        tinyRightRotateBtn.addEventListener('click', function(){
+
+                        });
+
+                        // tiny逆时针旋转
+                        tinyLeftRotateBtn.addEventListener('click', function(){
+                            
+                        });
+                        
+                        // 重置
+                        resetBtn.addEventListener('click', function(){
                             fixIco.recoverInit();
                         });
                     }

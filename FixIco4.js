@@ -100,6 +100,231 @@
         return dragdrop;
     })();
 
+    /**
+     * 工具方法
+     * 注意：函数中使用的都是数学直角坐标系(向右向上为正)，而不是dom坐标系（向有向下为正）
+     */
+    var utils = {
+        /**
+         * 标准计算公式，计算一点坐标(x0,y0)相对于中心点(rx0,ry0)顺时针旋转a弧度后的位置
+         * 因为css3中transform的旋转是顺时针旋转为正，所以这儿也计算顺时针旋转
+         * @param x0,  y0   {number} 点坐标位置
+         * @param rx0, ry0  {number} 旋转中心点
+         * @param a         {number} 顺时针旋转的弧度
+         * @return {object} 旋转后的点坐标 {x:点横坐标, y:点纵坐标}
+         * 注意：
+         *      1. 使用的都是数学直角坐标系(向右向上为正)，而不是dom坐标系（向有向下为正）
+         *      2. 弧长等于半径的弧度，其所对的圆心角为1弧度（rad）。故 360° = 2 * Math.PI;
+         *      3. js的三角计算公式的参数是弧度
+         * 原理：
+         *      点(x0,y0)绕原点逆时针旋转到(x1,y1)的公式是：
+         *          x1 = x0*cos(a) - y0*sin(a); 
+         *          y1 = y0*cos(a) + x0*sin(a)
+         *      因cos(-a) = cos(a), sin(-a) = -sin(a)。所以
+         *      点(x0,y0)绕原点顺时针旋转到(x1,y1)的公式：
+         *          x1 = x0*cos(a) + y0*sin(a); 
+         *          y1 = y0*cos(a) - x0*sin(a)
+         *      如果旋转中心为(rx0,ry0)，则需要把(rx0,ry0)沿着向量(-rx0,-ry0)移动到原点后再计算。
+         *      此时 (x0,y0) 变成 (x0-rx0, y0-ry0), (x1,y1) 变成 (x1-rx0, y1-ry0)。
+         *      整理得点 (x0,y0) 绕 (rx0,ry0) 顺时针旋转a弧度后的位置：
+         *          x1 = (x0-rx0)*cos(a) + (y0-ry0)*sin(a) + rx0; 
+         *          y1 = (y0-ry0)*cos(a) - (y0-rx0)*sin(a) + ry0
+         */
+        calcRotatePoint: function(x0, y0, rx0, ry0, a){
+            var pst = {};
+            pst.x = (x0-rx0) * Math.cos(a) + (y0-ry0) * Math.sin(a) + rx0;
+            pst.y = (y0-ry0) * Math.cos(a) - (x0-rx0) * Math.sin(a) + ry0;
+            return pst;
+        },
+        /**
+         * 获取矩形的五个点坐标(lt:左上角, rt:右上角, rb:右下角, lb:左下角,center:中心点)
+         * @param left, top     {number} 矩形的左上角偏移(数学直角坐标系)
+         * @param width, height {number} 矩形的宽、高
+         * @return {object} 矩形的五个点坐标
+         */
+        getPoints: function(left, top, width, height){
+            var points = {
+                lt: [left, top],                                // 矩形左上角坐标            
+                rt: [left + width, top],                        // 矩形右上角坐标
+                rb: [left + width, top - height],               // 矩形右下角坐标
+                lb: [left, top - height],                       // 矩形左下角坐标
+                center: [left + width / 2, top - height / 2],   // 矩形中心点坐标
+            }
+            return points;
+        },
+        /**
+         * 计算某div绕中心点顺时针旋转rotate角度后的矩形参数(边界范围)。
+         * @param left, top     {number} 当前div的左上角坐标(数学直角坐标系)
+         * @param width, height {number} 当前div的宽和高
+         * @param rotate        {number} 顺时针旋转角度，值为90n(当前的旋转角度为0)
+         * @return {object} 旋转后div的矩形参数(数学直角坐标系)
+         */
+        calcRetcRange: function(left, top, width, height, rotate){
+            // 如果未旋转，不计算，直接返回结果。 0 === -0 为true
+            if (rotate === 0 || rotate % 360 === 0) {
+                return {left: left, top: top, widht: width, height: height}; 
+            }
+        
+            // 计算矩形左下角，右上角旋转后的点坐标
+            var center0 = [left + width / 2, top - height / 2], // 旋转前的中心点坐标
+                a = rotate * (Math.PI / 180),                   // 顺时针旋转弧度
+                lb0 = [left, top - height],                     // 旋转前的左下角点坐标
+                rt0 = [left + width, top],                      // 旋转前的右上角点坐标
+                lb1, rt1;                                       // 旋转后左下角/右上角的点坐标
+            lb1 = this.calcRotatePoint(lb0[0], lb0[1], center0[0], center0[1], a), 
+            rt1 = this.calcRotatePoint(rt0[0], rt0[1], center0[0], center0[1], a); 
+
+            // 返回旋转后div的矩形参数
+            return {
+                left: Math.min(lb1.x, rt1.x), 
+                top: Math.min(lb1.y, rt1.y),
+                width: Math.abs(rt1.x - lb1.x),
+                height: Math.abs(rt1.y - lb1.y)
+            }
+        },
+        /**
+         * 计算矩形变换后的位置参数
+         * @param rotate {number} 顺时针旋转角度
+         * @param scale {number} 缩放比例
+         * @param transformCenter {array} 变换中心点
+         */
+        calcRetcPst: function(left, top, width, height, rotate, scale, transformCenter){
+            // var newPst = this.calcRetcRange(left, top, width, height, rotate);
+            
+        },
+    };
+
+    /**
+     * Retc(矩形)构造函数，内部使用数学坐标系(向右向上为正)，故传入和传出的参数都需要先转换后再使用。
+     * 传入的是dom坐标系（向右向下为正）参数
+     * 
+     */
+    function Retc(conf){
+        this.id = conf.id;              // 矩形元素的id
+        this.el = document.getElementById( this.id );   // 矩形元素的dom对象
+
+        this.naturalWidth = conf.naturalWidth;          // 原始宽度
+        this.naturalHeight = conf.naturalHeight;        // 原始高度
+
+        // 未旋转时（0°）的偏移和宽高，旋转后的偏移和宽高通过计算获得
+        this.left   = conf.left,                        // 未旋转时的左偏移
+        this.top    = -conf.top,                        // 未旋转时的上偏移
+        this.width  = conf.width,                       // 未旋转时的宽度
+        this.height = conf.height;                      // 未旋转时的高度
+
+        this.rotate = conf.rotate || 0;                 // 矩形当前旋转角度（单位:度°）
+        this.scale  = conf.scale || 1;                  // 矩形当前缩放比例（1表示100%）
+
+        // 未旋转矩形的五个点坐标(lt:左上角, rt:右上角, rb:右下角, lb:左下角,center:中心点)
+        this.points = this.getPoints(this.left, this.top, this.width, this.height);
+    };
+
+    // 获取矩形的五个点坐标
+    Retc.prototype.getPoints = function(left, top, width, height){
+        return utils.getPoints(left, top, width, height);
+    };
+
+    /**
+     * 获取矩形参数. 
+     * @param angle {number} 旋转角度（可选，默认为当前矩形旋转角度） 
+     * @param scale {number} 缩放值（可选，默认为当前矩形缩放值）
+     * @return {object} 指定角度，缩放时的矩形参数
+     * 注意：如果没有传参数获取当前旋转角度，缩放的矩形参数
+     *       如果指定了旋转角度，缩放值，则获取指定参数下的矩形参数
+     */
+    Retc.prototype.getValue = function(angle, scale){
+        rotate = typeof angle === 'undefined' ? this.rotate : angle;    
+        scale = typeof scale === 'undefined' ? this.scale : scale;     
+        var left   = this.left,
+            top    = this.top,
+            width  = this.width,
+            height = this.height,
+            vals   = {
+                rotate: rotate,                     // 旋转角度
+                scale: scale,                       // 缩放比例
+                naturalWidth: this.naturalWidth,    // 原始宽度
+                naturalHeight: this.naturalHeight,  // 原始高度
+            };
+        vals.newPst = utils.calcRetcRange(left, top, width, height, rotate);
+        vals.originalPst = {};
+
+        return vals;
+    };
+
+    // 以现在矩形偏移指定位置。 x,y: {number} 偏移量，单位像素
+    Retc.prototype.move = function(x, y){
+        var left = this.left + x,
+            top  = this.top + y;
+        this.moveTo(left, top);
+    };
+
+    // 以原始矩形移动到指定位置
+    Retc.prototype.moveTo = function(left, top){
+        this.left = left,
+        this.top = top;
+        this.renderRetc();
+    };
+
+    // 以现在矩形宽高缩放至指定比例。percentage:{number},缩放比例。1代表100%
+    Retc.prototype.zoom = function(percentage){
+        if (percentage <= 0) {
+            console.warn('zoom():缩放值参数错误，应该是大于0的数字!');
+            return this; 
+        }
+        var oldScale = this.scale,
+            newScale = oldScale * percentage;
+        this.zoomTo(newScale);
+    };
+
+    // 以原始矩形缩放至指定比例 percentage：{number} 缩放值
+    Retc.prototype.zoomTo = function(percentage){
+        if (percentage <= 0) {
+            console.warn('zoomTo():缩放值参数错误，应该是大于0的数字!');
+            return this; 
+        }
+        this.scale = percentage;
+        this.renderRetc();
+    };
+
+    // 以现在的矩形旋转至指定旋转角度 angle:{number},旋转角度
+    Retc.prototype.rotate = function(angle){
+        var oldRotate = this.rotate,
+            newRotate = oldRotate + angle;
+        this.rotateTo(newRotate);
+    };
+
+    // 以原始矩形旋转至指定旋转角度 angle: {number}，旋转角度
+    Retc.prototype.rotateTo = function(angle){
+        this.rotate = angle || 0;
+        this.renderRetc();
+    };
+
+    // 渲染矩形图像
+    Retc.prototype.renderRetc = function(cb){
+        // 偏移
+        this.el.style.left = this.left + 'px';
+        this.el.style.top  = -this.top  + 'px';
+
+        // 缩放
+        this.width  = this.naturalWidth * this.scale;
+        this.height = this.naturalHeight * this.scale;
+        this.el.style.width  = this.width  + 'px';
+        this.el.style.height = this.height + 'px';
+        
+        // 旋转。css前缀-ms-：IE9, -webkit-:Safari和chrome
+        var rp = 'rotate(' + this.rotate + 'deg)';
+        this.el.style.webkitTransform = rp;
+        this.el.style.msTransform     = rp;
+        this.el.style.transform       = rp;
+
+        this.points = this.getPoints(this.left, this.top, this.width, this.height);
+
+        if ( typeof cb==='function' ) { cb(this); }
+
+        return this;
+    }
+     
+
     // 在bigDiv上添加tinyDiv。都可以旋转、放大、缩小、拖动.支持ie9+
     // bigDiv的背景图片是bg, tinyDiv的背景图片是ico
     var FixIco = function( conf ){
@@ -699,7 +924,7 @@
             obj.height = divPst.height * zoom;  // div缩放后的高度
             if ( centerPst ) {
                 // 以光标点为中心缩放
-                var ratioX = ( centerPst.left - divPst.left ) / divPst.width,   // 光标在图中横坐标的比例
+      
                     ratioY = ( centerPst.top - divPst.top ) / divPst.height;    // 光标在图中纵坐标的比例
                     obj.left = centerPst.left - obj.width * ratioX;
                     obj.top = centerPst.top - obj.height * ratioY;
